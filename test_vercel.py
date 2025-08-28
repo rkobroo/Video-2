@@ -21,12 +21,17 @@ def check_vercel_config():
             config = json.load(f)
         print("   ✅ vercel.json is valid JSON")
         
-        # Check required fields
-        required_fields = ['version', 'builds', 'routes']
-        for field in required_fields:
-            if field not in config:
-                print(f"   ❌ Missing required field: {field}")
-                return False
+        # Check for either modern functions config or legacy builds config
+        has_functions = 'functions' in config
+        has_builds = 'builds' in config and 'routes' in config
+        
+        if not has_functions and not has_builds:
+            print("   ❌ Missing either 'functions' or 'builds'+'routes' configuration")
+            return False
+        
+        if has_functions and has_builds:
+            print("   ❌ Cannot use both 'functions' and 'builds' properties")
+            return False
         
         print("   ✅ vercel.json has required fields")
     except json.JSONDecodeError:

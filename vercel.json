@@ -1,31 +1,13 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "main.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "static/**",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/static/(.*)",
-      "dest": "/static/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/main.py"
-    }
-  ],
   "functions": {
-    "main.py": {
+    "api/index.py": {
       "maxDuration": 60
     }
   },
-  "env": {
-    "PYTHONPATH": "/var/task"
-  }
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index.py"
+    }
+  ]
 }

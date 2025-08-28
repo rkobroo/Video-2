@@ -19,34 +19,21 @@ The project includes these Vercel-specific files:
 ### `vercel.json`
 ```json
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "main.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "static/**",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/static/(.*)",
-      "dest": "/static/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/main.py"
-    }
-  ],
   "functions": {
-    "main.py": {
+    "api/index.py": {
       "maxDuration": 60
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index.py"
+    }
+  ]
 }
 ```
+
+**Note**: This configuration uses the modern Vercel functions approach instead of the legacy builds configuration to avoid conflicts.
 
 ### `requirements-vercel.txt`
 Optimized dependencies for serverless deployment:
@@ -187,21 +174,34 @@ Be aware of Vercel's limits:
 
 ### Common Issues:
 
-1. **Build Failures**:
+1. **"functions property cannot be used with builds" Error**:
+   - ✅ **Fixed**: Use modern `functions` configuration only
+   - Remove `builds` and `version` properties from `vercel.json`
+   - Use `rewrites` instead of `routes` for URL routing
+
+2. **Build Failures**:
    - Check `requirements-vercel.txt` dependencies
    - Ensure Python 3.9+ compatibility
+   - Verify API structure: files must be in `api/` directory
 
-2. **Import Errors**:
+3. **Import Errors**:
    - Verify all imports are available in the serverless environment
    - Check for local-only dependencies
+   - Ensure `handler = app` export in `api/index.py`
 
-3. **Timeout Issues**:
+4. **Timeout Issues**:
    - Optimize video processing
    - Consider using direct URLs instead of processing
+   - Current limit: 60 seconds (configured in vercel.json)
 
-4. **CORS Issues**:
+5. **CORS Issues**:
    - CORS is pre-configured in the API
    - Check browser developer tools for specific errors
+
+6. **404 Errors**:
+   - Ensure API file is at `api/index.py`
+   - Check `rewrites` configuration in `vercel.json`
+   - Verify FastAPI app is properly exported as `handler`
 
 ### Debug Logs:
 ```bash
