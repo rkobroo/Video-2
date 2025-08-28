@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Media Video Downloader</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 40px 0;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            color: rgba(255,255,255,0.9);
+            font-weight: 300;
+        }
+
+        .main-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+
+        .download-form {
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .url-input-container {
+            position: relative;
+        }
+
+        .url-input {
+            padding-left: 50px;
+        }
+
+        .url-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            font-size: 18px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 15px;
+            align-items: end;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .video-info {
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 24px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .video-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 12px;
+        }
+
+        .video-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .video-thumbnail {
+            width: 100%;
+            max-width: 320px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .download-status {
+            margin: 20px 0;
+            padding: 16px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+
+        .status-queued {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
+        .status-downloading {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #3b82f6;
+        }
+
+        .status-completed {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+
+        .status-failed {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+
+        .download-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .download-link:hover {
+            text-decoration: underline;
+        }
+
+        .supported-platforms {
+            margin-top: 30px;
+        }
+
+        .platforms-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .platform-item {
+            background: #f8fafc;
+            padding: 12px 16px;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .loading {
+            display: none;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 32px;
+            height: 32px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid #ef4444;
+            margin: 20px 0;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .main-card {
+                padding: 24px;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .video-meta {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-download"></i> Video Downloader</h1>
+            <p>Download videos from your favorite social media platforms</p>
+        </div>
+
+        <div class="main-card">
+            <form id="downloadForm" class="download-form">
+                <div class="form-group">
+                    <label for="videoUrl">Video URL</label>
+                    <div class="url-input-container">
+                        <i class="fas fa-link url-icon"></i>
+                        <input 
+                            type="url" 
+                            id="videoUrl" 
+                            class="url-input"
+                            placeholder="Paste your video URL here (YouTube, TikTok, Instagram, etc.)"
+                            required
+                        >
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="quality">Quality</label>
+                        <select id="quality">
+                            <option value="best">Best Quality</option>
+                            <option value="720">720p</option>
+                            <option value="480">480p</option>
+                            <option value="360">360p</option>
+                            <option value="worst">Lowest Quality</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="audioOnly">Download Type</label>
+                        <select id="audioOnly">
+                            <option value="false">Video + Audio</option>
+                            <option value="true">Audio Only (MP3)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <button type="button" id="infoBtn" class="btn btn-secondary">
+                            <i class="fas fa-info-circle"></i> Get Info
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Processing your request...</p>
+            </div>
+
+            <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+            <div id="videoInfo" style="display: none;"></div>
+
+            <div id="downloadStatus" style="display: none;"></div>
+
+            <div class="supported-platforms">
+                <h3>Supported Platforms</h3>
+                <div id="platformsGrid" class="platforms-grid">
+                    <!-- Platforms will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+        let currentDownloadId = null;
+        let statusInterval = null;
+
+        // Load supported platforms
+        async function loadSupportedPlatforms() {
+            try {
+                const response = await fetch(`${API_BASE}/api/platforms`);
+                const data = await response.json();
+                
+                const platformsGrid = document.getElementById('platformsGrid');
+                platformsGrid.innerHTML = data.platforms.map(platform => 
+                    `<div class="platform-item">${platform.name}</div>`
+                ).join('');
+            } catch (error) {
+                console.error('Failed to load platforms:', error);
+            }
+        }
+
+        // Show/hide loading
+        function setLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        // Hide error message
+        function hideError() {
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+
+        // Format duration
+        function formatDuration(seconds) {
+            if (!seconds) return 'Unknown';
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            
+            if (hours > 0) {
+                return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }
+            return `${minutes}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Format file size
+        function formatFileSize(bytes) {
+            if (!bytes) return 'Unknown';
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(1024));
+            return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        // Get video info
+        async function getVideoInfo() {
+            const url = document.getElementById('videoUrl').value;
+            const quality = document.getElementById('quality').value;
+            const audioOnly = document.getElementById('audioOnly').value === 'true';
+
+            if (!url) {
+                showError('Please enter a video URL');
+                return;
+            }
+
+            hideError();
+            setLoading(true);
+
+            try {
+                const response = await fetch(`${API_BASE}/api/video/info`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        quality: quality,
+                        audio_only: audioOnly
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to get video info');
+                }
+
+                const videoInfo = await response.json();
+                displayVideoInfo(videoInfo);
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // Display video info
+        function displayVideoInfo(info) {
+            const videoInfoDiv = document.getElementById('videoInfo');
+            
+            videoInfoDiv.innerHTML = `
+                <div class="video-info">
+                    <h4 class="video-title">${info.title}</h4>
+                    <div class="video-meta">
+                        <div class="meta-item">
+                            <i class="fas fa-user"></i>
+                            <span>${info.uploader || 'Unknown'}</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class="fas fa-clock"></i>
+                            <span>${formatDuration(info.duration)}</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class="fas fa-eye"></i>
+                            <span>${info.view_count ? info.view_count.toLocaleString() : 'Unknown'} views</span>
+                        </div>
+                    </div>
+                    ${info.thumbnail ? `<img src="${info.thumbnail}" alt="Video thumbnail" class="video-thumbnail">` : ''}
+                    ${info.description ? `<p style="margin-top: 16px; color: #6b7280;">${info.description}</p>` : ''}
+                </div>
+            `;
+            
+            videoInfoDiv.style.display = 'block';
+        }
+
+        // Start download
+        async function startDownload() {
+            const url = document.getElementById('videoUrl').value;
+            const quality = document.getElementById('quality').value;
+            const audioOnly = document.getElementById('audioOnly').value === 'true';
+
+            if (!url) {
+                showError('Please enter a video URL');
+                return;
+            }
+
+            hideError();
+            setLoading(true);
+
+            try {
+                const response = await fetch(`${API_BASE}/api/video/download`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        quality: quality,
+                        audio_only: audioOnly
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to start download');
+                }
+
+                const result = await response.json();
+                currentDownloadId = result.download_id;
+                
+                // Start checking download status
+                statusInterval = setInterval(checkDownloadStatus, 2000);
+                checkDownloadStatus(); // Check immediately
+                
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // Check download status
+        async function checkDownloadStatus() {
+            if (!currentDownloadId) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/video/status/${currentDownloadId}`);
+                
+                if (!response.ok) {
+                    throw new Error('Failed to get download status');
+                }
+
+                const status = await response.json();
+                displayDownloadStatus(status);
+
+                // Stop checking if download is complete or failed
+                if (status.status === 'completed' || status.status === 'failed') {
+                    clearInterval(statusInterval);
+                    statusInterval = null;
+                }
+            } catch (error) {
+                console.error('Failed to check status:', error);
+                clearInterval(statusInterval);
+                statusInterval = null;
+            }
+        }
+
+        // Display download status
+        function displayDownloadStatus(status) {
+            const statusDiv = document.getElementById('downloadStatus');
+            let statusClass = `status-${status.status}`;
+            let statusText = status.status.charAt(0).toUpperCase() + status.status.slice(1);
+            let content = `<div class="download-status ${statusClass}">`;
+
+            switch (status.status) {
+                case 'queued':
+                    content += `<i class="fas fa-clock"></i> ${statusText}: Your download is in queue`;
+                    break;
+                case 'downloading':
+                    content += `<i class="fas fa-download"></i> ${statusText}: Please wait while we process your video`;
+                    break;
+                case 'completed':
+                    content += `<i class="fas fa-check-circle"></i> ${statusText}: ${status.title || 'Your video'} is ready!`;
+                    if (status.file_path) {
+                        content += `<br><a href="${status.file_path}" class="download-link" download>
+                            <i class="fas fa-download"></i> Download ${status.title || 'Video'}
+                        </a>`;
+                        if (status.file_size) {
+                            content += ` (${formatFileSize(status.file_size)})`;
+                        }
+                    }
+                    break;
+                case 'failed':
+                    content += `<i class="fas fa-exclamation-circle"></i> ${statusText}: ${status.error || 'Download failed'}`;
+                    break;
+            }
+
+            content += '</div>';
+            statusDiv.innerHTML = content;
+            statusDiv.style.display = 'block';
+        }
+
+        // Event listeners
+        document.getElementById('infoBtn').addEventListener('click', getVideoInfo);
+        document.getElementById('downloadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            startDownload();
+        });
+
+        // Clear status when URL changes
+        document.getElementById('videoUrl').addEventListener('input', function() {
+            document.getElementById('videoInfo').style.display = 'none';
+            document.getElementById('downloadStatus').style.display = 'none';
+            hideError();
+            
+            if (statusInterval) {
+                clearInterval(statusInterval);
+                statusInterval = null;
+            }
+        });
+
+        // Load platforms on page load
+        loadSupportedPlatforms();
+    </script>
+</body>
+</html>
