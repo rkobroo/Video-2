@@ -7,9 +7,12 @@ A powerful web application that allows users to download videos from various soc
 - **Multi-platform Support**: Download from YouTube, TikTok, Instagram, Twitter/X, Facebook, Twitch, Vimeo, Dailymotion, and Reddit
 - **Quality Selection**: Choose from multiple video quality options (best, 720p, 480p, 360p, worst)
 - **Audio-only Downloads**: Extract audio as MP3 files
+- **Enhanced Metadata**: Display thumbnails, duration, uploader, views, likes, upload date
+- **Multiple Media Support**: Download multiple photos/images from social media posts
+- **Smart Filenames**: Automatically use video titles as filenames (sanitized for file systems)
+- **Rich Video Info**: Preview comprehensive video details before downloading
 - **Real-time Status**: Track download progress with live status updates
-- **Video Information**: Preview video details before downloading
-- **Modern UI**: Beautiful, responsive web interface
+- **Modern UI**: Beautiful, responsive web interface with enhanced media display
 - **RESTful API**: Full API endpoints for integration
 
 ## Quick Start

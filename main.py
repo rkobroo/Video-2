@@ -7,7 +7,7 @@ import yt_dlp
 import os
 import uuid
 import asyncio
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import tempfile
 import shutil
 from urllib.parse import urlparse
@@ -41,13 +41,30 @@ class VideoDownloadRequest(BaseModel):
     quality: Optional[str] = "best"
     audio_only: Optional[bool] = False
 
+class MediaItem(BaseModel):
+    type: str  # "video", "audio", "image"
+    url: str
+    title: str
+    filename: str
+    format: str
+    quality: Optional[str] = None
+    size: Optional[int] = None
+
 class VideoInfo(BaseModel):
     title: str
     duration: Optional[int]
+    duration_string: Optional[str]
     thumbnail: Optional[str]
+    thumbnails: Optional[List[str]] = []
     uploader: Optional[str]
+    upload_date: Optional[str]
     view_count: Optional[int]
+    like_count: Optional[int]
     description: Optional[str]
+    website: Optional[str]
+    original_url: str
+    media_type: str  # "video", "playlist", "images", "mixed"
+    media_items: List[MediaItem] = []
     formats: list
 
 class DownloadResponse(BaseModel):
@@ -55,9 +72,82 @@ class DownloadResponse(BaseModel):
     download_id: str
     message: str
     file_path: Optional[str] = None
+    video_info: Optional[VideoInfo] = None
 
 # Store download status
 download_status: Dict[str, Dict[str, Any]] = {}
+
+def sanitize_filename(filename: str) -> str:
+    """Sanitize filename for safe file system usage"""
+    # Remove or replace invalid characters
+    filename = re.sub(r'[<>:"/\\|?*]', '_', filename)
+    # Remove extra whitespace and dots
+    filename = re.sub(r'\s+', ' ', filename).strip()
+    filename = filename.replace('..', '_')
+    # Limit length
+    if len(filename) > 200:
+        filename = filename[:200]
+    return filename
+
+def format_duration(seconds: Optional[int]) -> Optional[str]:
+    """Format duration in seconds to human readable format"""
+    if not seconds:
+        return None
+    
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    secs = seconds % 60
+    
+    if hours > 0:
+        return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+    else:
+        return f"{minutes:02d}:{secs:02d}"
+
+def extract_thumbnails(info: Dict[str, Any]) -> List[str]:
+    """Extract all available thumbnails"""
+    thumbnails = []
+    
+    # Main thumbnail
+    if info.get('thumbnail'):
+        thumbnails.append(info['thumbnail'])
+    
+    # All thumbnails from info
+    if info.get('thumbnails'):
+        for thumb in info['thumbnails']:
+            if isinstance(thumb, dict) and thumb.get('url'):
+                if thumb['url'] not in thumbnails:
+                    thumbnails.append(thumb['url'])
+            elif isinstance(thumb, str) and thumb not in thumbnails:
+                thumbnails.append(thumb)
+    
+    return thumbnails
+
+def get_media_type(info: Dict[str, Any]) -> str:
+    """Determine the type of media"""
+    if info.get('_type') == 'playlist':
+        return 'playlist'
+    
+    formats = info.get('formats', [])
+    has_video = any(f.get('vcodec') != 'none' for f in formats if f.get('vcodec'))
+    has_audio = any(f.get('acodec') != 'none' for f in formats if f.get('acodec'))
+    has_images = any('image' in f.get('format', '').lower() for f in formats)
+    
+    if has_images and not has_video:
+        return 'images'
+    elif has_video or has_audio:
+        return 'video'
+    else:
+        return 'unknown'
+
+def generate_filename(title: str, ext: str, quality: str = None) -> str:
+    """Generate a safe filename from title"""
+    safe_title = sanitize_filename(title or 'download')
+    
+    # Add quality suffix if specified
+    if quality and quality not in ['best', 'worst']:
+        safe_title += f"_{quality}"
+    
+    return f"{safe_title}.{ext}"
 
 def get_video_info(url: str) -> Dict[str, Any]:
     """Extract video information without downloading"""
@@ -92,9 +182,14 @@ async def download_video_task(download_id: str, url: str, quality: str, audio_on
     try:
         download_status[download_id]["status"] = "downloading"
         
-        # Set up download options
+        # First get video info to determine filename
+        info = get_video_info(url)
+        title = info.get('title', 'download')
+        safe_filename = sanitize_filename(title)
+        
+        # Set up download options with proper filename
         ydl_opts = {
-            'outtmpl': os.path.join(DOWNLOADS_DIR, f'{download_id}_%(title)s.%(ext)s'),
+            'outtmpl': os.path.join(DOWNLOADS_DIR, f'{safe_filename}.%(ext)s'),
             'quiet': True,
             'no_warnings': True,
         }
@@ -152,13 +247,36 @@ async def get_video_information(request: VideoDownloadRequest):
     try:
         info = get_video_info(url)
         
+        # Get thumbnails
+        thumbnails = extract_thumbnails(info)
+        
+        # Get media type
+        media_type = get_media_type(info)
+        
+        # Format upload date
+        upload_date = info.get("upload_date")
+        if upload_date:
+            try:
+                # Convert YYYYMMDD to YYYY-MM-DD
+                upload_date = f"{upload_date[:4]}-{upload_date[4:6]}-{upload_date[6:8]}"
+            except:
+                pass
+        
         return VideoInfo(
             title=info.get("title", "Unknown"),
             duration=info.get("duration"),
-            thumbnail=info.get("thumbnail"),
-            uploader=info.get("uploader") or info.get("channel", "Unknown"),
+            duration_string=format_duration(info.get("duration")),
+            thumbnail=thumbnails[0] if thumbnails else None,
+            thumbnails=thumbnails,
+            uploader=info.get("uploader") or info.get("channel") or info.get("creator", "Unknown"),
+            upload_date=upload_date,
             view_count=info.get("view_count"),
+            like_count=info.get("like_count"),
             description=info.get("description", "")[:500] + "..." if info.get("description", "") else "",
+            website=info.get("extractor_key", "Unknown"),
+            original_url=url,
+            media_type=media_type,
+            media_items=[],
             formats=[{
                 "format_id": f.get("format_id"),
                 "ext": f.get("ext"),

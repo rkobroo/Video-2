@@ -155,11 +155,31 @@
             border-left: 4px solid #667eea;
         }
 
+        .video-header {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            align-items: flex-start;
+        }
+
+        .video-thumbnail {
+            flex-shrink: 0;
+            width: 200px;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .video-details {
+            flex: 1;
+        }
+
         .video-title {
             font-size: 1.4rem;
             font-weight: 600;
             color: #1f2937;
             margin-bottom: 12px;
+            line-height: 1.3;
         }
 
         .video-meta {
@@ -177,11 +197,111 @@
             font-size: 14px;
         }
 
-        .video-thumbnail {
+        .video-description {
+            background: #ffffff;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            margin-top: 16px;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #4b5563;
+        }
+
+        .media-items {
+            margin-top: 20px;
+        }
+
+        .media-items h4 {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #1f2937;
+            margin-bottom: 12px;
+        }
+
+        .media-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 12px;
+        }
+
+        .media-item {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .media-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+        }
+
+        .media-item-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .media-type-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+
+        .media-type-video { background: #ef4444; }
+        .media-type-audio { background: #10b981; }
+        .media-type-image { background: #f59e0b; }
+
+        .media-item-title {
+            font-weight: 500;
+            font-size: 14px;
+            color: #1f2937;
+            flex: 1;
+        }
+
+        .media-item-details {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .download-button {
             width: 100%;
-            max-width: 320px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            padding: 8px 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .download-button:hover {
+            background: #5a67d8;
+        }
+
+        @media (max-width: 768px) {
+            .video-header {
+                flex-direction: column;
+            }
+            
+            .video-thumbnail {
+                width: 100%;
+                max-width: 100%;
+            }
+            
+            .media-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         .download-status {
@@ -474,29 +594,123 @@
         function displayVideoInfo(info) {
             const videoInfoDiv = document.getElementById('videoInfo');
             
-            videoInfoDiv.innerHTML = `
-                <div class="video-info">
-                    <h4 class="video-title">${info.title}</h4>
-                    <div class="video-meta">
-                        <div class="meta-item">
-                            <i class="fas fa-user"></i>
-                            <span>${info.uploader || 'Unknown'}</span>
-                        </div>
-                        <div class="meta-item">
-                            <i class="fas fa-clock"></i>
-                            <span>${formatDuration(info.duration)}</span>
-                        </div>
-                        <div class="meta-item">
-                            <i class="fas fa-eye"></i>
-                            <span>${info.view_count ? info.view_count.toLocaleString() : 'Unknown'} views</span>
-                        </div>
-                    </div>
-                    ${info.thumbnail ? `<img src="${info.thumbnail}" alt="Video thumbnail" class="video-thumbnail">` : ''}
-                    ${info.description ? `<p style="margin-top: 16px; color: #6b7280;">${info.description}</p>` : ''}
-                </div>
-            `;
+            // Create enhanced video info display
+            let content = `<div class="video-info">`;
             
+            // Video header with thumbnail and details
+            content += `<div class="video-header">`;
+            if (info.thumbnail) {
+                content += `<img src="${info.thumbnail}" alt="Video thumbnail" class="video-thumbnail">`;
+            }
+            
+            content += `<div class="video-details">`;
+            content += `<h4 class="video-title">${info.title}</h4>`;
+            
+            // Meta information
+            content += `<div class="video-meta">`;
+            content += `<div class="meta-item">
+                <i class="fas fa-user"></i>
+                <span>${info.uploader || 'Unknown'}</span>
+            </div>`;
+            
+            if (info.duration_string || info.duration) {
+                content += `<div class="meta-item">
+                    <i class="fas fa-clock"></i>
+                    <span>${info.duration_string || formatDuration(info.duration)}</span>
+                </div>`;
+            }
+            
+            if (info.view_count) {
+                content += `<div class="meta-item">
+                    <i class="fas fa-eye"></i>
+                    <span>${info.view_count.toLocaleString()} views</span>
+                </div>`;
+            }
+            
+            if (info.like_count) {
+                content += `<div class="meta-item">
+                    <i class="fas fa-heart"></i>
+                    <span>${info.like_count.toLocaleString()} likes</span>
+                </div>`;
+            }
+            
+            if (info.upload_date) {
+                content += `<div class="meta-item">
+                    <i class="fas fa-calendar"></i>
+                    <span>${info.upload_date}</span>
+                </div>`;
+            }
+            
+            if (info.website) {
+                content += `<div class="meta-item">
+                    <i class="fas fa-globe"></i>
+                    <span>${info.website}</span>
+                </div>`;
+            }
+            
+            content += `</div>`; // Close video-meta
+            content += `</div>`; // Close video-details
+            content += `</div>`; // Close video-header
+            
+            // Description
+            if (info.description) {
+                content += `<div class="video-description">${info.description}</div>`;
+            }
+            
+            // Media items (for multiple photos/videos)
+            if (info.media_items && info.media_items.length > 0) {
+                content += `<div class="media-items">`;
+                content += `<h4>Available Media (${info.media_items.length} items)</h4>`;
+                content += `<div class="media-grid">`;
+                
+                info.media_items.forEach((item, index) => {
+                    const icon = item.type === 'video' ? 'fas fa-play' : 
+                                item.type === 'audio' ? 'fas fa-music' : 'fas fa-image';
+                    const typeClass = `media-type-${item.type}`;
+                    
+                    content += `<div class="media-item">`;
+                    content += `<div class="media-item-header">`;
+                    content += `<div class="media-type-icon ${typeClass}">
+                        <i class="${icon}"></i>
+                    </div>`;
+                    content += `<div class="media-item-title">${item.title}</div>`;
+                    content += `</div>`;
+                    
+                    content += `<div class="media-item-details">`;
+                    content += `Format: ${item.format.toUpperCase()}`;
+                    if (item.quality) {
+                        content += ` • Quality: ${item.quality}`;
+                    }
+                    if (item.size) {
+                        content += ` • Size: ${formatFileSize(item.size)}`;
+                    }
+                    content += `</div>`;
+                    
+                    content += `<button class="download-button" onclick="downloadMediaItem('${item.url}', '${item.filename}')">
+                        <i class="fas fa-download"></i> Download ${item.type}
+                    </button>`;
+                    content += `</div>`;
+                });
+                
+                content += `</div>`; // Close media-grid
+                content += `</div>`; // Close media-items
+            }
+            
+            content += `</div>`; // Close video-info
+            
+            videoInfoDiv.innerHTML = content;
             videoInfoDiv.style.display = 'block';
+        }
+
+        // Download individual media item
+        function downloadMediaItem(url, filename) {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         // Start download
@@ -552,12 +766,16 @@
             const videoInfo = result.video_info;
             
             let content = `<div class="download-status status-completed">`;
-            content += `<i class="fas fa-check-circle"></i> Ready: ${videoInfo.title || 'Your video'} is ready to download!`;
+            content += `<i class="fas fa-check-circle"></i> Ready: ${videoInfo.title || 'Your content'} is ready to download!`;
             
+            // Show main download link if available
             if (result.download_url) {
-                const filename = `${videoInfo.title || 'video'}.${getFileExtension(result.download_url)}`;
+                const safeName = sanitizeFilename(videoInfo.title || 'video');
+                const ext = getFileExtension(result.download_url);
+                const filename = `${safeName}.${ext}`;
+                
                 content += `<br><a href="${result.download_url}" class="download-link" download="${filename}" target="_blank">
-                    <i class="fas fa-download"></i> Download ${videoInfo.title || 'Video'}
+                    <i class="fas fa-download"></i> Download Main File
                 </a>`;
                 
                 // Add copy link option
@@ -566,9 +784,27 @@
                 </button>`;
             }
             
+            // Show individual media items if available
+            if (videoInfo.media_items && videoInfo.media_items.length > 0) {
+                content += `<br><br><strong>Available Downloads:</strong>`;
+                videoInfo.media_items.forEach((item, index) => {
+                    const icon = item.type === 'video' ? 'fas fa-play' : 
+                                item.type === 'audio' ? 'fas fa-music' : 'fas fa-image';
+                    
+                    content += `<br><a href="${item.url}" class="download-link" download="${item.filename}" target="_blank">
+                        <i class="${icon}"></i> ${item.title} (${item.format.toUpperCase()})
+                    </a>`;
+                });
+            }
+            
             content += '</div>';
             statusDiv.innerHTML = content;
             statusDiv.style.display = 'block';
+        }
+
+        // Sanitize filename for download
+        function sanitizeFilename(filename) {
+            return filename.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
         }
 
         // Get file extension from URL
