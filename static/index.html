@@ -374,8 +374,7 @@
 
     <script>
         const API_BASE = '';
-        let currentDownloadId = null;
-        let statusInterval = null;
+        let currentVideoInfo = null;
 
         // Load supported platforms
         async function loadSupportedPlatforms() {
@@ -533,11 +532,12 @@
                 }
 
                 const result = await response.json();
-                currentDownloadId = result.download_id;
                 
-                // Start checking download status
-                statusInterval = setInterval(checkDownloadStatus, 2000);
-                checkDownloadStatus(); // Check immediately
+                if (result.status === 'ready' && result.download_url) {
+                    displayDownloadReady(result);
+                } else {
+                    showError('Download URL not available');
+                }
                 
             } catch (error) {
                 showError(error.message);
@@ -546,65 +546,57 @@
             }
         }
 
-        // Check download status
-        async function checkDownloadStatus() {
-            if (!currentDownloadId) return;
-
-            try {
-                const response = await fetch(`${API_BASE}/api/video/status/${currentDownloadId}`);
-                
-                if (!response.ok) {
-                    throw new Error('Failed to get download status');
-                }
-
-                const status = await response.json();
-                displayDownloadStatus(status);
-
-                // Stop checking if download is complete or failed
-                if (status.status === 'completed' || status.status === 'failed') {
-                    clearInterval(statusInterval);
-                    statusInterval = null;
-                }
-            } catch (error) {
-                console.error('Failed to check status:', error);
-                clearInterval(statusInterval);
-                statusInterval = null;
-            }
-        }
-
-        // Display download status
-        function displayDownloadStatus(status) {
+        // Display download ready status
+        function displayDownloadReady(result) {
             const statusDiv = document.getElementById('downloadStatus');
-            let statusClass = `status-${status.status}`;
-            let statusText = status.status.charAt(0).toUpperCase() + status.status.slice(1);
-            let content = `<div class="download-status ${statusClass}">`;
-
-            switch (status.status) {
-                case 'queued':
-                    content += `<i class="fas fa-clock"></i> ${statusText}: Your download is in queue`;
-                    break;
-                case 'downloading':
-                    content += `<i class="fas fa-download"></i> ${statusText}: Please wait while we process your video`;
-                    break;
-                case 'completed':
-                    content += `<i class="fas fa-check-circle"></i> ${statusText}: ${status.title || 'Your video'} is ready!`;
-                    if (status.file_path) {
-                        content += `<br><a href="${status.file_path}" class="download-link" download>
-                            <i class="fas fa-download"></i> Download ${status.title || 'Video'}
-                        </a>`;
-                        if (status.file_size) {
-                            content += ` (${formatFileSize(status.file_size)})`;
-                        }
-                    }
-                    break;
-                case 'failed':
-                    content += `<i class="fas fa-exclamation-circle"></i> ${statusText}: ${status.error || 'Download failed'}`;
-                    break;
+            const videoInfo = result.video_info;
+            
+            let content = `<div class="download-status status-completed">`;
+            content += `<i class="fas fa-check-circle"></i> Ready: ${videoInfo.title || 'Your video'} is ready to download!`;
+            
+            if (result.download_url) {
+                const filename = `${videoInfo.title || 'video'}.${getFileExtension(result.download_url)}`;
+                content += `<br><a href="${result.download_url}" class="download-link" download="${filename}" target="_blank">
+                    <i class="fas fa-download"></i> Download ${videoInfo.title || 'Video'}
+                </a>`;
+                
+                // Add copy link option
+                content += `<br><button onclick="copyDownloadLink('${result.download_url}')" class="btn btn-secondary" style="margin-top: 8px;">
+                    <i class="fas fa-copy"></i> Copy Download Link
+                </button>`;
             }
-
+            
             content += '</div>';
             statusDiv.innerHTML = content;
             statusDiv.style.display = 'block';
+        }
+
+        // Get file extension from URL
+        function getFileExtension(url) {
+            try {
+                const urlObj = new URL(url);
+                const pathname = urlObj.pathname;
+                const ext = pathname.split('.').pop();
+                return ext || 'mp4';
+            } catch {
+                return 'mp4';
+            }
+        }
+
+        // Copy download link to clipboard
+        function copyDownloadLink(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                alert('Download link copied to clipboard!');
+            }).catch(() => {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = url;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('Download link copied to clipboard!');
+            });
         }
 
         // Event listeners
@@ -619,11 +611,7 @@
             document.getElementById('videoInfo').style.display = 'none';
             document.getElementById('downloadStatus').style.display = 'none';
             hideError();
-            
-            if (statusInterval) {
-                clearInterval(statusInterval);
-                statusInterval = null;
-            }
+            currentVideoInfo = null;
         });
 
         // Load platforms on page load

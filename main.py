@@ -250,6 +250,9 @@ async def delete_downloaded_file(download_id: str):
     else:
         raise HTTPException(status_code=400, detail="No file to delete")
 
+# For Vercel deployment
+handler = app
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
