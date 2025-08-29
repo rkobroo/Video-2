@@ -2,7 +2,6 @@ from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, HttpUrl, Field
-import yt_dlp
 import os
 import uuid
 import asyncio
@@ -142,6 +141,12 @@ def generate_filename(title: str, ext: str, quality: str = None) -> str:
 
 def get_video_info(url: str) -> Dict[str, Any]:
     """Extract video information without downloading"""
+    # Lazy import to avoid cold-start failures if yt_dlp fails to import
+    try:
+        import yt_dlp  # type: ignore
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Dependency error: yt-dlp failed to import: {exc}")
+
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
@@ -372,6 +377,11 @@ async def download_video(request: VideoDownloadRequest):
         raise HTTPException(status_code=400, detail="Unsupported platform")
     
     try:
+        # Ensure yt_dlp import works before proceeding
+        try:
+            import yt_dlp  # type: ignore  # noqa: F401
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Dependency error: yt-dlp failed to import: {exc}")
         info = get_video_info(url)
         
         # Extract all available media items
