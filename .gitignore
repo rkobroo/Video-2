@@ -1,4 +1,30 @@
-# Byte-compiled / optimized / DLL files
+# Python cache and compiled files
 __pycache__/
 *.py[cod]
-*.class
+*$py.class
+*.so
+
+# Virtual environment
+venv/
+env/
+
+# Downloaded files
+downloads/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+
+# Vercel
+.vercel
+
+# Logs
+*.log
