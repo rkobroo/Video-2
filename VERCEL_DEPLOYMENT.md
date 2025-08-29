@@ -19,24 +19,21 @@ The project includes these Vercel-specific files:
 ### `vercel.json`
 ```json
 {
-  "functions": {
-    "api/index.py": {
-      "maxDuration": 60
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api/index.py"
-    }
+  "version": 2,
+  "builds": [
+    { "src": "api/index.py", "use": "@vercel/python", "config": { "includeFiles": "static/**" } }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/index.py" },
+    { "src": "/(.*)", "dest": "/api/index.py" }
   ]
 }
 ```
 
-**Note**: This configuration uses the modern Vercel functions approach instead of the legacy builds configuration to avoid conflicts.
+**Note**: This configuration pins the Python builder implicitly to Vercel's latest supported version and bundles the `static/` directory into the function output.
 
-### `requirements-vercel.txt`
-Optimized dependencies for serverless deployment:
+### `api/requirements.txt`
+Dependencies installed for the Python Function:
 - `fastapi==0.115.6`
 - `yt-dlp==2024.12.23`
 - `pydantic==2.10.5`
@@ -50,8 +47,8 @@ your-project/
 │   └── index.py          # Serverless API handler
 ├── static/
 │   └── index.html        # Frontend
-├── vercel.json           # Vercel configuration
-├── requirements-vercel.txt # Python dependencies
+├── vercel.json           # Vercel configuration (builds + routes)
+├── api/requirements.txt  # Python function dependencies
 ├── main.py              # Local development server
 └── README.md
 ```
@@ -77,7 +74,7 @@ your-project/
    - Framework Preset: `Other`
    - Build Command: (leave empty)
    - Output Directory: (leave empty)
-   - Install Command: `pip install -r requirements-vercel.txt`
+   - Install Command: (leave empty; Vercel installs `api/requirements.txt`)
 
 4. **Deploy**:
    - Click "Deploy"
