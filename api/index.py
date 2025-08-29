@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, Field
 import yt_dlp
 import os
 import uuid
@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 import json
 import time
 import re
+from pathlib import Path
 
 app = FastAPI(
     title="Social Media Video Downloader API",
@@ -48,7 +49,7 @@ class VideoInfo(BaseModel):
     duration: Optional[int]
     duration_string: Optional[str]
     thumbnail: Optional[str]
-    thumbnails: Optional[List[str]] = []
+    thumbnails: List[str] = Field(default_factory=list)
     uploader: Optional[str]
     upload_date: Optional[str]
     view_count: Optional[int]
@@ -57,8 +58,8 @@ class VideoInfo(BaseModel):
     website: Optional[str]
     original_url: str
     media_type: str  # "video", "playlist", "images", "mixed"
-    media_items: List[MediaItem] = []
-    formats: list
+    media_items: List[MediaItem] = Field(default_factory=list)
+    formats: List[dict] = Field(default_factory=list)
     download_url: Optional[str] = None
 
 class DownloadResponse(BaseModel):
@@ -280,23 +281,27 @@ def get_best_format_url(info: Dict[str, Any], quality: str, audio_only: bool) ->
 @app.get("/")
 async def home():
     """Serve the main page"""
-    try:
-        with open('/var/task/static/index.html', 'r') as f:
-            content = f.read()
-        return Response(content=content, media_type="text/html")
-    except FileNotFoundError:
-        # Fallback for local development
+    candidate_paths = [
+        Path('/var/task/static/index.html'),
+        Path(__file__).resolve().parent.parent / 'static' / 'index.html',
+        Path.cwd() / 'static' / 'index.html'
+    ]
+    for path in candidate_paths:
         try:
-            with open('static/index.html', 'r') as f:
-                content = f.read()
-            return Response(content=content, media_type="text/html")
-        except FileNotFoundError:
-            return JSONResponse(
-                content={"message": "Welcome to Social Media Video Downloader API", 
-                        "docs": "/docs",
-                        "platforms": "/api/platforms"}, 
-                status_code=200
-            )
+            if path.exists():
+                content = path.read_text(encoding='utf-8')
+                return Response(content=content, media_type="text/html; charset=utf-8")
+        except Exception:
+            # Try next path
+            continue
+    return JSONResponse(
+        content={
+            "message": "Welcome to Social Media Video Downloader API",
+            "docs": "/docs",
+            "platforms": "/api/platforms"
+        },
+        status_code=200
+    )
 
 @app.post("/api/video/info", response_model=VideoInfo)
 async def get_video_information(request: VideoDownloadRequest):
