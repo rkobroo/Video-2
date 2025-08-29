@@ -577,11 +577,26 @@
                 });
 
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'Failed to get video info');
+                    let message = `Failed to get video info (${response.status})`;
+                    try {
+                        const ct = response.headers.get('content-type') || '';
+                        if (ct.includes('application/json')) {
+                            const err = await response.json();
+                            message = err.detail || JSON.stringify(err);
+                        } else {
+                            message = await response.text();
+                        }
+                    } catch {}
+                    throw new Error(message);
                 }
 
-                const videoInfo = await response.json();
+                let videoInfo;
+                try {
+                    videoInfo = await response.json();
+                } catch (e) {
+                    const text = await response.text();
+                    throw new Error(text || 'Unexpected non-JSON response');
+                }
                 displayVideoInfo(videoInfo);
             } catch (error) {
                 showError(error.message);
@@ -741,11 +756,26 @@
                 });
 
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'Failed to start download');
+                    let message = `Failed to start download (${response.status})`;
+                    try {
+                        const ct = response.headers.get('content-type') || '';
+                        if (ct.includes('application/json')) {
+                            const err = await response.json();
+                            message = err.detail || JSON.stringify(err);
+                        } else {
+                            message = await response.text();
+                        }
+                    } catch {}
+                    throw new Error(message);
                 }
 
-                const result = await response.json();
+                let result;
+                try {
+                    result = await response.json();
+                } catch (e) {
+                    const text = await response.text();
+                    throw new Error(text || 'Unexpected non-JSON response');
+                }
                 
                 if (result.status === 'ready' && result.download_url) {
                     displayDownloadReady(result);
