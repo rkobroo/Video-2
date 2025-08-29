@@ -460,5 +460,5 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "message": "Social Media Video Downloader API is running"}
 
-# For Vercel
-handler = app
+# For Vercel deployment
+app
