@@ -1,8 +1,7 @@
 {
   "functions": {
-    "api/index.py": {
+    "api/**/*.py": {
       "maxDuration": 60,
-      "runtime": "python3.11",
       "includeFiles": "static/**"
     }
   },
