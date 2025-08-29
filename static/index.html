@@ -612,14 +612,24 @@
             // Create enhanced video info display
             let content = `<div class="video-info">`;
             
+            // Show warning if there are access restrictions
+            if (info._error) {
+                content += `<div class="error-message" style="margin-bottom: 16px;">
+                    <i class="fas fa-exclamation-triangle"></i> 
+                    ${info._error === 'Limited access' ? 
+                        'Limited access to video information. Download may still work.' : 
+                        'Some video information could not be retrieved.'}
+                </div>`;
+            }
+            
             // Video header with thumbnail and details
             content += `<div class="video-header">`;
             if (info.thumbnail) {
-                content += `<img src="${info.thumbnail}" alt="Video thumbnail" class="video-thumbnail">`;
+                content += `<img src="${info.thumbnail}" alt="Video thumbnail" class="video-thumbnail" onerror="this.style.display='none'">`;
             }
             
             content += `<div class="video-details">`;
-            content += `<h4 class="video-title">${info.title}</h4>`;
+            content += `<h4 class="video-title">${info.title || 'Unknown Video'}</h4>`;
             
             // Meta information
             content += `<div class="video-meta">`;
@@ -693,7 +703,7 @@
                     
                     content += `<div class="media-item-details">`;
                     content += `Format: ${item.format.toUpperCase()}`;
-                    if (item.quality) {
+                    if (item.quality && item.quality !== 'unknown') {
                         content += ` • Quality: ${item.quality}`;
                     }
                     if (item.size) {
@@ -709,6 +719,12 @@
                 
                 content += `</div>`; // Close media-grid
                 content += `</div>`; // Close media-items
+            } else if (!info._error) {
+                // Show a message if no media items are available and there's no error
+                content += `<div style="margin-top: 16px; color: #6b7280; text-align: center;">
+                    <i class="fas fa-info-circle"></i> 
+                    Media files will be available after clicking download.
+                </div>`;
             }
             
             content += `</div>`; // Close video-info

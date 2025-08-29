@@ -94,14 +94,23 @@ def format_duration(seconds: Optional[int]) -> Optional[str]:
     if not seconds:
         return None
     
-    hours = seconds // 3600
-    minutes = (seconds % 3600) // 60
-    secs = seconds % 60
-    
-    if hours > 0:
-        return f"{hours:02d}:{minutes:02d}:{secs:02d}"
-    else:
-        return f"{minutes:02d}:{secs:02d}"
+    try:
+        # Convert to int if it's a float
+        if isinstance(seconds, float):
+            seconds = int(seconds)
+        elif isinstance(seconds, str):
+            seconds = int(float(seconds))
+        
+        hours = seconds // 3600
+        minutes = (seconds % 3600) // 60
+        secs = seconds % 60
+        
+        if hours > 0:
+            return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+        else:
+            return f"{minutes:02d}:{secs:02d}"
+    except (ValueError, TypeError):
+        return "Unknown"
 
 def extract_thumbnails(info: Dict[str, Any]) -> List[str]:
     """Extract all available thumbnails"""
@@ -155,14 +164,89 @@ def get_video_info(url: str) -> Dict[str, Any]:
         'quiet': True,
         'no_warnings': True,
         'extract_flat': False,
+        # YouTube anti-bot measures
+        'extractor_args': {
+            'youtube': {
+                'skip': ['hls', 'dash'],
+                'player_skip': ['configs', 'webpage']
+            }
+        },
+        # Additional headers to avoid bot detection
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        },
+        # Retry and timeout settings
+        'retries': 3,
+        'fragment_retries': 3,
+        'socket_timeout': 30,
+        'no_check_certificate': True,
     }
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
             info = ydl.extract_info(url, download=False)
             return info
+        except yt_dlp.utils.ExtractorError as e:
+            error_msg = str(e)
+            if "Sign in to confirm you're not a bot" in error_msg:
+                # Try alternative extraction for YouTube
+                return try_alternative_extraction(url, ydl_opts)
+            else:
+                raise HTTPException(status_code=400, detail=f"Failed to extract video info: {error_msg}")
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Failed to extract video info: {str(e)}")
+            error_msg = str(e)
+            if "format code" in error_msg and "float" in error_msg:
+                raise HTTPException(status_code=400, detail="Video metadata format error. This video may have incomplete information.")
+            raise HTTPException(status_code=400, detail=f"Failed to extract video info: {error_msg}")
+
+def try_alternative_extraction(url: str, base_opts: Dict) -> Dict[str, Any]:
+    """Try alternative extraction methods when bot detection occurs"""
+    alternative_opts = base_opts.copy()
+    alternative_opts.update({
+        'extractor_args': {
+            'youtube': {
+                'skip': ['dash'],
+                'player_client': ['web', 'android'],
+            }
+        },
+        'format': 'best[height<=720]',
+    })
+    
+    with yt_dlp.YoutubeDL(alternative_opts) as ydl:
+        try:
+            info = ydl.extract_info(url, download=False)
+            return info
+        except:
+            # Return basic info if all else fails
+            from urllib.parse import urlparse, parse_qs
+            parsed_url = urlparse(url)
+            
+            if 'youtube.com' in parsed_url.netloc or 'youtu.be' in parsed_url.netloc:
+                video_id = 'unknown'
+                if 'v=' in parsed_url.query:
+                    video_id = parse_qs(parsed_url.query)['v'][0]
+                elif 'youtu.be' in parsed_url.netloc:
+                    video_id = parsed_url.path.lstrip('/')
+                
+                return {
+                    'title': f'YouTube Video {video_id}',
+                    'id': video_id,
+                    'webpage_url': url,
+                    'extractor': 'youtube',
+                    'duration': None,
+                    'thumbnail': f'https://img.youtube.com/vi/{video_id}/maxresdefault.jpg',
+                    'description': 'Video information limited due to access restrictions.',
+                    'formats': [],
+                    '_error': 'Limited access'
+                }
+            else:
+                return {
+                    'title': 'Video',
+                    'webpage_url': url,
+                    'description': 'Video information could not be extracted.',
+                    'formats': [],
+                    '_error': 'Extraction failed'
+                }
 
 def is_supported_platform(url: str) -> bool:
     """Check if the URL is from a supported platform"""

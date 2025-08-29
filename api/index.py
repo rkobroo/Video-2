@@ -84,14 +84,23 @@ def format_duration(seconds: Optional[int]) -> Optional[str]:
     if not seconds:
         return None
     
-    hours = seconds // 3600
-    minutes = (seconds % 3600) // 60
-    secs = seconds % 60
-    
-    if hours > 0:
-        return f"{hours:02d}:{minutes:02d}:{secs:02d}"
-    else:
-        return f"{minutes:02d}:{secs:02d}"
+    try:
+        # Convert to int if it's a float
+        if isinstance(seconds, float):
+            seconds = int(seconds)
+        elif isinstance(seconds, str):
+            seconds = int(float(seconds))
+        
+        hours = seconds // 3600
+        minutes = (seconds % 3600) // 60
+        secs = seconds % 60
+        
+        if hours > 0:
+            return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+        else:
+            return f"{minutes:02d}:{secs:02d}"
+    except (ValueError, TypeError):
+        return "Unknown"
 
 def extract_thumbnails(info: Dict[str, Any]) -> List[str]:
     """Extract all available thumbnails"""
@@ -146,14 +155,83 @@ def get_video_info(url: str) -> Dict[str, Any]:
         'no_warnings': True,
         'extract_flat': False,
         'writeinfojson': False,
+        # YouTube anti-bot measures
+        'extractor_args': {
+            'youtube': {
+                'skip': ['hls', 'dash'],
+                'player_skip': ['configs', 'webpage']
+            }
+        },
+        # Additional headers to avoid bot detection
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        },
+        # Retry and timeout settings
+        'retries': 3,
+        'fragment_retries': 3,
+        'socket_timeout': 30,
+        # Try to use cookies if available (for YouTube)
+        'cookiefile': None,
+        # Skip unavailable fragments
+        'ignoreerrors': False,
+        'no_check_certificate': True,
     }
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
             info = ydl.extract_info(url, download=False)
             return info
+        except yt_dlp.utils.ExtractorError as e:
+            error_msg = str(e)
+            if "Sign in to confirm you're not a bot" in error_msg:
+                # Try alternative extraction method for YouTube
+                return try_alternative_youtube_extraction(url, ydl_opts)
+            elif "format code" in error_msg:
+                # Handle format string errors
+                raise HTTPException(status_code=400, detail="Video format extraction error. Please try a different URL.")
+            else:
+                raise HTTPException(status_code=400, detail=f"Failed to extract video info: {error_msg}")
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Failed to extract video info: {str(e)}")
+            error_msg = str(e)
+            if "format code" in error_msg and "float" in error_msg:
+                # Handle the specific float format error
+                raise HTTPException(status_code=400, detail="Video metadata format error. This video may have incomplete information.")
+            raise HTTPException(status_code=400, detail=f"Failed to extract video info: {error_msg}")
+
+def try_alternative_youtube_extraction(url: str, base_opts: Dict) -> Dict[str, Any]:
+    """Try alternative extraction methods for YouTube when bot detection occurs"""
+    alternative_opts = base_opts.copy()
+    
+    # Try with different extractor options
+    alternative_opts.update({
+        'extractor_args': {
+            'youtube': {
+                'skip': ['dash'],
+                'player_client': ['web', 'android'],
+            }
+        },
+        'format': 'best[height<=720]',  # Lower quality to avoid restrictions
+    })
+    
+    with yt_dlp.YoutubeDL(alternative_opts) as ydl:
+        try:
+            info = ydl.extract_info(url, download=False)
+            return info
+        except:
+            # If all else fails, return basic info with error
+            parsed_url = urlparse(url)
+            video_id = parsed_url.query.split('v=')[1].split('&')[0] if 'v=' in parsed_url.query else 'unknown'
+            return {
+                'title': f'YouTube Video {video_id}',
+                'id': video_id,
+                'webpage_url': url,
+                'extractor': 'youtube',
+                'duration': None,
+                'thumbnail': f'https://img.youtube.com/vi/{video_id}/maxresdefault.jpg',
+                'description': 'Video information limited due to access restrictions. Download may still work.',
+                'formats': [],
+                '_error': 'Limited access - some features may not work'
+            }
 
 def is_supported_platform(url: str) -> bool:
     """Check if the URL is from a supported platform"""
@@ -174,25 +252,52 @@ def extract_media_items(info: Dict[str, Any], quality: str, audio_only: bool) ->
     title = info.get('title', 'Unknown')
     formats = info.get('formats', [])
     
+    # Handle case where no formats are available but direct URL exists
+    if not formats and info.get('url'):
+        # Direct URL case (common with TikTok and some other platforms)
+        ext = 'mp4' if not audio_only else 'mp3'
+        filename = generate_filename(title, ext, quality)
+        
+        media_items.append(MediaItem(
+            type="audio" if audio_only else "video",
+            url=info['url'],
+            title=title,
+            filename=filename,
+            format=ext,
+            quality="unknown",
+            size=info.get('filesize')
+        ))
+        return media_items
+    
     if audio_only:
         # Find audio formats
         audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('vcodec') == 'none']
+        if not audio_formats:
+            # If no pure audio, try video formats for audio extraction
+            audio_formats = [f for f in formats if f.get('acodec') != 'none']
+        
         if audio_formats:
             best_audio = max(audio_formats, key=lambda x: x.get('abr', 0) or 0)
             if best_audio.get('url'):
                 filename = generate_filename(title, 'mp3', quality)
+                quality_str = f"{best_audio.get('abr', 'unknown')}kbps" if best_audio.get('abr') else 'unknown'
+                
                 media_items.append(MediaItem(
                     type="audio",
                     url=best_audio['url'],
                     title=title,
                     filename=filename,
                     format='mp3',
-                    quality=f"{best_audio.get('abr', 'unknown')}kbps",
+                    quality=quality_str,
                     size=best_audio.get('filesize')
                 ))
     else:
         # Video formats
         video_formats = [f for f in formats if f.get('vcodec') != 'none']
+        
+        # If no video formats, try all formats (some platforms don't mark vcodec properly)
+        if not video_formats:
+            video_formats = [f for f in formats if f.get('url')]
         
         # Find best video format based on quality
         if quality == "worst":
@@ -212,7 +317,17 @@ def extract_media_items(info: Dict[str, Any], quality: str, audio_only: bool) ->
             if best_format.get('url'):
                 ext = best_format.get('ext', 'mp4')
                 filename = generate_filename(title, ext, quality)
-                quality_str = f"{best_format.get('height', 'unknown')}p" if best_format.get('height') else 'unknown'
+                
+                # Better quality string handling
+                height = best_format.get('height')
+                if height:
+                    quality_str = f"{height}p"
+                elif best_format.get('format_note'):
+                    quality_str = best_format['format_note']
+                elif best_format.get('format_id'):
+                    quality_str = best_format['format_id']
+                else:
+                    quality_str = 'unknown'
                 
                 media_items.append(MediaItem(
                     type="video",
@@ -231,13 +346,17 @@ def extract_media_items(info: Dict[str, Any], quality: str, audio_only: bool) ->
                 ext = img_format.get('ext', 'jpg')
                 filename = generate_filename(f"{title}_image_{i+1}", ext)
                 
+                width = img_format.get('width', 'unknown')
+                height = img_format.get('height', 'unknown')
+                quality_str = f"{width}x{height}" if width != 'unknown' and height != 'unknown' else 'unknown'
+                
                 media_items.append(MediaItem(
                     type="image",
                     url=img_format['url'],
                     title=f"{title} - Image {i+1}",
                     filename=filename,
                     format=ext,
-                    quality=f"{img_format.get('width', 'unknown')}x{img_format.get('height', 'unknown')}",
+                    quality=quality_str,
                     size=img_format.get('filesize')
                 ))
     
@@ -247,18 +366,27 @@ def get_best_format_url(info: Dict[str, Any], quality: str, audio_only: bool) ->
     """Get the best format URL based on quality preference"""
     formats = info.get('formats', [])
     
+    # If no formats, try direct URL
     if not formats:
         return info.get('url')
     
     if audio_only:
         # Find best audio format
         audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('vcodec') == 'none']
+        if not audio_formats:
+            # Fallback to any format with audio
+            audio_formats = [f for f in formats if f.get('acodec') != 'none']
+        
         if audio_formats:
             best_audio = max(audio_formats, key=lambda x: x.get('abr', 0) or 0)
             return best_audio.get('url')
     
     # Video formats
     video_formats = [f for f in formats if f.get('vcodec') != 'none']
+    
+    # If no video formats, try all available formats
+    if not video_formats:
+        video_formats = [f for f in formats if f.get('url')]
     
     if quality == "worst":
         suitable_formats = sorted(video_formats, key=lambda x: x.get('height', 0) or 0)
@@ -275,6 +403,7 @@ def get_best_format_url(info: Dict[str, Any], quality: str, audio_only: bool) ->
     if suitable_formats:
         return suitable_formats[0].get('url')
     
+    # Final fallback
     return info.get('url')
 
 @app.get("/")
