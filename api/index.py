@@ -13,6 +13,7 @@ import json
 import time
 import re
 from pathlib import Path
+import sys
 
 app = FastAPI(
     title="Social Media Video Downloader API",
@@ -477,3 +478,21 @@ async def health_check():
 
 # For Vercel
 handler = app
+
+@app.get("/api/debug")
+async def debug_info():
+    """Return basic debug info to diagnose runtime issues"""
+    data: Dict[str, Any] = {
+        "python_version": sys.version,
+        "fastapi_version": getattr(FastAPI, "__version__", None),
+        "cwd": str(Path.cwd()),
+    }
+    try:
+        try:
+            import yt_dlp  # type: ignore
+            data["yt_dlp"] = {"imported": True, "version": getattr(yt_dlp, "version", None)}
+        except Exception as exc:
+            data["yt_dlp"] = {"imported": False, "error": str(exc)}
+    except Exception as exc:
+        data["error"] = str(exc)
+    return data
